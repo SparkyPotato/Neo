@@ -34,10 +34,12 @@ protected:
 	float Sensitivity;
 
 	// Variables
-	UPROPERTY(EditAnywhere, Category="Movement")
+	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float DashCooldown;
-	UPROPERTY(EditAnywhere, Category="Movement")
+	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float PushoffCooldown;
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	float UnCrouchCooldown;
 
 	// Components
 	UPROPERTY(EditDefaultsOnly)
@@ -49,7 +51,6 @@ protected:
 	UCharacterMovementComponent* MovementComponent;
 
 	// Control variables
-	UPROPERTY(Replicated)
 	int JumpsLeft;
 
 	bool bCanDash;
@@ -57,6 +58,10 @@ protected:
 
 	bool bCanPushoff;
 	FTimerHandle PushoffTimer;
+
+	bool bCanUnCrouch;
+	bool bTriedToUnCrouch;
+	FTimerHandle UnCrouchTimer;
 
 public:	
 	virtual void Tick(float DeltaTime) override;
@@ -71,27 +76,22 @@ public:
 	void MoveMouseY(float Speed);
 
 	void ClientJump();
-	UFUNCTION(Server, Reliable)
-	void ServerJump();
 
 	void ClientCrouch();
 	UFUNCTION(Server, Reliable)
 	void ServerCrouch();
-	void ClientUncrouch();
+	void ClientUnCrouch();
 	UFUNCTION(Server, Reliable)
-	void ServerUncrouch();
+	void ServerUnCrouch();
+	void AllowUnCrouch();
 	UFUNCTION(NetMulticast, Reliable)
 	void SetScale(FVector Scale);
 
 	void ClientDash();
 	void EndDash();
-	UFUNCTION(Server, Reliable)
-	void ServerDash();
 
 	void ClientPushoff();
 	void EndPushoff();
-	UFUNCTION(Server, Reliable)
-	void ServerPushoff();
 
 	// Events
 	UFUNCTION()

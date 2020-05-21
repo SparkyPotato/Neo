@@ -30,13 +30,15 @@ void ANetPlayer::BeginPlay()
 	JumpsLeft = JumpMaxCount;
 	bCanPushoff = true;
 	bCanDash = true;
+	bCanUnCrouch = false;
+	bTriedToUnCrouch = false;
 }
 
 void ANetPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ANetPlayer, JumpsLeft);
+	
 }
 
 void ANetPlayer::Tick(float DeltaTime)
@@ -57,7 +59,7 @@ void ANetPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_Pressed, this, &ANetPlayer::ClientJump);
 
 	PlayerInputComponent->BindAction("Crouch", EInputEvent::IE_Pressed, this, &ANetPlayer::ClientCrouch);
-	PlayerInputComponent->BindAction("Crouch", EInputEvent::IE_Released, this, &ANetPlayer::ClientUncrouch);
+	PlayerInputComponent->BindAction("Crouch", EInputEvent::IE_Released, this, &ANetPlayer::ClientUnCrouch);
 
 	PlayerInputComponent->BindAction("Dash", EInputEvent::IE_Pressed, this, &ANetPlayer::ClientDash);
 
@@ -91,59 +93,57 @@ void ANetPlayer::ClientJump()
 	if (JumpsLeft > 0)
 	{
 		LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity), false, true);
-		ServerJump();
-	}
-}
-
-void ANetPlayer::ServerJump_Implementation()
-{
-	if (JumpsLeft > 0)
-	{
-		LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity), false, true);
 		JumpsLeft--;
 	}
 }
 
 void ANetPlayer::ClientCrouch()
 {
+	bCanUnCrouch = false;
+	GetWorld()->GetTimerManager().SetTimer(UnCrouchTimer, this, &ANetPlayer::AllowUnCrouch, UnCrouchCooldown, false);
 	Crouch();
 	SetActorScale3D(FVector(1.f, 1.f, 0.5f));
+	ServerCrouch();
 	MovementComponent->SetWalkableFloorAngle(5.f);
 	MovementComponent->BrakingFriction = 0.1f;
 	MovementComponent->BrakingDecelerationWalking = 128.f;
 	MovementComponent->GroundFriction = 0.f;
-	ServerCrouch();
 }
 
 void ANetPlayer::ServerCrouch_Implementation()
 {
-	Crouch();
 	SetScale(FVector(1.f, 1.f, 0.5f));
-	MovementComponent->SetWalkableFloorAngle(5.f);
-	MovementComponent->BrakingFriction = 0.1f;
-	MovementComponent->BrakingDecelerationWalking = 128.f;
-	MovementComponent->GroundFriction = 0.f;
 }
 
-void ANetPlayer::ClientUncrouch()
+void ANetPlayer::ClientUnCrouch()
 {
+	if (!bCanUnCrouch)
+	{
+		bTriedToUnCrouch = true;
+		return;
+	}
 	UnCrouch();
 	SetActorScale3D(FVector(1.f, 1.f, 1.f));
+	ServerUnCrouch();
 	MovementComponent->SetWalkableFloorAngle(45.f);
 	MovementComponent->BrakingFriction = 1.f;
 	MovementComponent->BrakingDecelerationWalking = 2048.f;
 	MovementComponent->GroundFriction = 4.f;
-	ServerUncrouch();
 }
 
-void ANetPlayer::ServerUncrouch_Implementation()
+void ANetPlayer::AllowUnCrouch()
 {
-	UnCrouch();
+	bCanUnCrouch = true;
+	if (bTriedToUnCrouch)
+	{
+		ClientUnCrouch();
+		bTriedToUnCrouch = false;
+	}
+}
+
+void ANetPlayer::ServerUnCrouch_Implementation()
+{
 	SetScale(FVector(1.f, 1.f, 1.f));
-	MovementComponent->SetWalkableFloorAngle(45.f);
-	MovementComponent->BrakingFriction = 1.f;
-	MovementComponent->BrakingDecelerationWalking = 2048.f;
-	MovementComponent->GroundFriction = 4.f;
 }
 
 void ANetPlayer::SetScale_Implementation(FVector Scale)
@@ -158,13 +158,7 @@ void ANetPlayer::ClientDash()
 		bCanDash = false;
 		GetWorld()->GetTimerManager().SetTimer(DashTimer, this, &ANetPlayer::EndDash, DashCooldown, false);
 		LaunchCharacter((FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X)) * MovementComponent->JumpZVelocity * 6, true, true);
-		ServerDash();
 	}
-}
-
-void ANetPlayer::ServerDash_Implementation()
-{
-	LaunchCharacter((FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X)) * MovementComponent->JumpZVelocity * 6, true, true);
 }
 
 void ANetPlayer::EndDash()
@@ -176,12 +170,6 @@ void ANetPlayer::ClientPushoff()
 {
 	bCanPushoff = false;
 	GetWorld()->GetTimerManager().SetTimer(PushoffTimer, this, &ANetPlayer::EndPushoff, PushoffCooldown, false);
-	LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity * 3), true, true);
-	ServerPushoff();
-}
-
-void ANetPlayer::ServerPushoff_Implementation()
-{
 	LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity * 3), true, true);
 }
 
