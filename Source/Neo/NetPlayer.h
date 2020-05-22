@@ -37,7 +37,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float DashCooldown;
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
+	float DashStrength;
+	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float PushoffCooldown;
+	UPROPERTY(EditDefaultsOnly, Category="Movement")
+	float PushoffStrength;
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float UnCrouchCooldown;
 

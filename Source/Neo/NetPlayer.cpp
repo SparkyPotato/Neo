@@ -157,7 +157,7 @@ void ANetPlayer::ClientDash()
 	{
 		bCanDash = false;
 		GetWorld()->GetTimerManager().SetTimer(DashTimer, this, &ANetPlayer::EndDash, DashCooldown, false);
-		LaunchCharacter((FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X)) * MovementComponent->JumpZVelocity * 6, true, true);
+		LaunchCharacter((FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X)) * MovementComponent->JumpZVelocity * DashStrength, true, true);
 	}
 }
 
@@ -168,9 +168,12 @@ void ANetPlayer::EndDash()
 
 void ANetPlayer::ClientPushoff()
 {
-	bCanPushoff = false;
-	GetWorld()->GetTimerManager().SetTimer(PushoffTimer, this, &ANetPlayer::EndPushoff, PushoffCooldown, false);
-	LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity * 3), true, true);
+	if (bCanPushoff)
+	{
+		bCanPushoff = false;
+		GetWorld()->GetTimerManager().SetTimer(PushoffTimer, this, &ANetPlayer::EndPushoff, PushoffCooldown, false);
+		LaunchCharacter(FVector(0.f, 0.f, MovementComponent->JumpZVelocity * PushoffStrength), true, true);
+	}
 }
 
 void ANetPlayer::EndPushoff()

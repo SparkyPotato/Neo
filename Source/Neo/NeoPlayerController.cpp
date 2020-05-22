@@ -7,5 +7,5 @@ void ANeoPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SetInputMode(FInputModeGameAndUI());
+	// SetInputMode(FInputModeGameAndUI());
 }
