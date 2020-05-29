@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -34,16 +35,34 @@ protected:
 	float Sensitivity;
 
 	// Variables
+	UPROPERTY(EditDefaultsOnly, Category="Health")
+	int MaxHealth;
+
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float DashCooldown;
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float DashStrength;
+
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float PushoffCooldown;
 	UPROPERTY(EditDefaultsOnly, Category="Movement")
 	float PushoffStrength;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float UnCrouchCooldown;
+
+	UPROPERTY(EditDefaultsOnly, Category="Pistol")
+	int PistolDamage;
+	UPROPERTY(EditDefaultsOnly, Category = "Pistol")
+	float PistolFirerate;
+	UPROPERTY(EditDefaultsOnly, Category = "Pistol")
+	int PistolMaxAmmo;
+	UPROPERTY(EditDefaultsOnly, Category = "Pistol")
+	float PistolReloadTime;
+	UPROPERTY(EditDefaultsOnly, Category = "Pistol")
+	UStaticMesh* PistolMesh;
+	UPROPERTY(EditDefaultsOnly, Category = "Pistol")
+	FVector PistolOffset;
 
 	// Components
 	UPROPERTY(EditDefaultsOnly)
@@ -52,6 +71,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	UCapsuleComponent* DetectionComponent;
 	USkeletalMeshComponent* MeshComponent;
+	UPROPERTY(EditDefaultsOnly)
+	UStaticMeshComponent* WeaponMeshComponent;
 	UCharacterMovementComponent* MovementComponent;
 
 	// Control variables
@@ -66,6 +87,18 @@ protected:
 	bool bCanUnCrouch;
 	bool bTriedToUnCrouch;
 	FTimerHandle UnCrouchTimer;
+
+	UPROPERTY(ReplicatedUsing=OnRep_CurrentHealth)
+	int CurrentHealth;
+	UFUNCTION()
+	void OnRep_CurrentHealth();
+	void UpdateHealth();
+
+	bool bCanFirePistol;
+	bool bIsReloadingPistol;
+	FTimerHandle PistolTimer;
+	float PistolReloadTimer;
+	int PistolAmmo;
 
 public:	
 	virtual void Tick(float DeltaTime) override;
@@ -96,6 +129,16 @@ public:
 
 	void ClientPushoff();
 	void EndPushoff();
+
+	// Weapon functions
+	void Fire();
+	void Reload();
+	UFUNCTION(Server, Reliable)
+	void Damage(ANetPlayer* PlayerToDamage, int Damage);
+
+	void PistolFire();
+	void PistolEndFire();
+	void PistolReload();
 
 	// Events
 	UFUNCTION()

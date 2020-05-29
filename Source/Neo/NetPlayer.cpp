@@ -14,6 +14,9 @@ ANetPlayer::ANetPlayer()
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("Camera");
 	CameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight));
 	CameraComponent->SetupAttachment(GetRootComponent());
+
+	WeaponMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("WeaponMesh");
+	WeaponMeshComponent->SetupAttachment(CameraComponent);
 }
 
 void ANetPlayer::BeginPlay()
@@ -27,23 +30,51 @@ void ANetPlayer::BeginPlay()
 	DetectionComponent->OnComponentBeginOverlap.AddDynamic(this, &ANetPlayer::OnDetectionOverlapBegin);
 	DetectionComponent->OnComponentEndOverlap.AddDynamic(this, &ANetPlayer::OnDetectionOverlapEnd);
 
+	WeaponMeshComponent->SetStaticMesh(PistolMesh);
+	WeaponMeshComponent->SetRelativeLocation(PistolOffset);
+
 	JumpsLeft = JumpMaxCount;
 	bCanPushoff = true;
 	bCanDash = true;
 	bCanUnCrouch = false;
 	bTriedToUnCrouch = false;
+
+	CurrentHealth = MaxHealth;
+
+	bCanFirePistol = true;
+	bIsReloadingPistol = false;
+	PistolAmmo = PistolMaxAmmo;
 }
 
 void ANetPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	
+	DOREPLIFETIME(ANetPlayer, CurrentHealth);
 }
 
 void ANetPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bIsReloadingPistol)
+	{
+		if (PistolReloadTimer >= PistolReloadTime - PistolReloadTime / 4)
+		{
+			WeaponMeshComponent->SetRelativeRotation(FMath::RInterpConstantTo(WeaponMeshComponent->GetRelativeRotation(), FRotator(0.f, 0.f, 0.f), DeltaTime, 360.f / PistolReloadTime));
+			if (FMath::RoundHalfFromZero(WeaponMeshComponent->GetRelativeRotation().Pitch) == 0.f)
+			{
+				bIsReloadingPistol = false;
+				PistolReloadTimer = 0.f;
+				PistolAmmo = PistolMaxAmmo;
+			}
+		}
+		else
+		{
+			PistolReloadTimer += DeltaTime;
+			WeaponMeshComponent->SetRelativeRotation(FMath::RInterpConstantTo(WeaponMeshComponent->GetRelativeRotation(), FRotator(90.f, 0.f, 0.f), DeltaTime, 360.f / PistolReloadTime));
+		}
+	}
 }
 
 void ANetPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -64,6 +95,9 @@ void ANetPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 	PlayerInputComponent->BindAction("Dash", EInputEvent::IE_Pressed, this, &ANetPlayer::ClientDash);
 
 	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_DoubleClick, this, &ANetPlayer::ClientPushoff);
+
+	PlayerInputComponent->BindAction("Fire", EInputEvent::IE_Pressed, this, &ANetPlayer::Fire);
+	PlayerInputComponent->BindAction("Reload", EInputEvent::IE_Pressed, this, &ANetPlayer::Reload);
 }
 
 void ANetPlayer::Forward(float Speed)
@@ -103,6 +137,7 @@ void ANetPlayer::ClientCrouch()
 	GetWorld()->GetTimerManager().SetTimer(UnCrouchTimer, this, &ANetPlayer::AllowUnCrouch, UnCrouchCooldown, false);
 	Crouch();
 	SetActorScale3D(FVector(1.f, 1.f, 0.5f));
+	WeaponMeshComponent->SetRelativeScale3D(FVector(1.f, 1.f, 2.f));
 	ServerCrouch();
 	MovementComponent->SetWalkableFloorAngle(5.f);
 	MovementComponent->BrakingFriction = 0.1f;
@@ -113,6 +148,7 @@ void ANetPlayer::ClientCrouch()
 void ANetPlayer::ServerCrouch_Implementation()
 {
 	SetScale(FVector(1.f, 1.f, 0.5f));
+	WeaponMeshComponent->SetRelativeScale3D(FVector(1.f, 1.f, 2.f));
 }
 
 void ANetPlayer::ClientUnCrouch()
@@ -124,6 +160,7 @@ void ANetPlayer::ClientUnCrouch()
 	}
 	UnCrouch();
 	SetActorScale3D(FVector(1.f, 1.f, 1.f));
+	WeaponMeshComponent->SetRelativeScale3D(FVector(1.f, 1.f, 1.f));
 	ServerUnCrouch();
 	MovementComponent->SetWalkableFloorAngle(45.f);
 	MovementComponent->BrakingFriction = 1.f;
@@ -144,6 +181,7 @@ void ANetPlayer::AllowUnCrouch()
 void ANetPlayer::ServerUnCrouch_Implementation()
 {
 	SetScale(FVector(1.f, 1.f, 1.f));
+	WeaponMeshComponent->SetRelativeScale3D(FVector(1.f, 1.f, 1.f));
 }
 
 void ANetPlayer::SetScale_Implementation(FVector Scale)
@@ -179,6 +217,73 @@ void ANetPlayer::ClientPushoff()
 void ANetPlayer::EndPushoff()
 {
 	bCanPushoff = true;
+}
+
+void ANetPlayer::OnRep_CurrentHealth()
+{
+	UpdateHealth();
+}
+
+void ANetPlayer::UpdateHealth()
+{
+	UE_LOG(LogTemp, Warning, TEXT("%s Health: %i"), *GetName(), CurrentHealth);
+}
+
+void ANetPlayer::Damage_Implementation(ANetPlayer* PlayerToDamage, int Damage)
+{
+	PlayerToDamage->CurrentHealth -= Damage;
+	UpdateHealth();
+}
+
+void ANetPlayer::Fire()
+{
+	PistolFire();
+}
+
+void ANetPlayer::Reload()
+{
+	if (PistolAmmo < PistolMaxAmmo)
+	{
+		PistolReload();
+	}
+}
+
+void ANetPlayer::PistolFire()
+{
+	if (bCanFirePistol && !bIsReloadingPistol)
+	{
+		bCanFirePistol = false;
+		PistolAmmo--;
+		GetWorld()->GetTimerManager().SetTimer(PistolTimer, this, &ANetPlayer::PistolEndFire, PistolFirerate, false);
+		
+		FHitResult Hit;
+		FVector Start = GetActorLocation() + CameraComponent->GetRelativeLocation() + CameraComponent->GetForwardVector() * 50.f;
+		FVector End = Start + CameraComponent->GetForwardVector() * 9000.f;
+		FCollisionObjectQueryParams CollisionParams = FCollisionObjectQueryParams(ECC_TO_BITFIELD(ECC_Pawn));
+		if (GetWorld()->LineTraceSingleByObjectType(Hit, Start, End, CollisionParams))
+		{
+			if (Hit.GetActor()->ActorHasTag(FName("Player")) && Hit.GetActor() != this)
+			{
+				Damage(Cast<ANetPlayer>(Hit.GetActor()), PistolDamage);
+			}
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Ammo: %i"), PistolAmmo);
+		if (PistolAmmo == 0)
+		{
+			PistolReload();
+		}
+	}
+}
+
+void ANetPlayer::PistolEndFire()
+{
+	bCanFirePistol = true;
+}
+
+void ANetPlayer::PistolReload()
+{
+	bIsReloadingPistol = true;
 }
 
 void ANetPlayer::OnDetectionOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

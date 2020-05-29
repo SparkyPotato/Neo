@@ -5,10 +5,11 @@ using System.Collections.Generic;
 
 public class NeoTarget : TargetRules
 {
-	public NeoTarget( TargetInfo Target) : base(Target)
-	{
-		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V2;
-		ExtraModuleNames.AddRange( new string[] { "Neo" } );
-	}
+    public NeoTarget(TargetInfo Target) : base(Target)
+    {
+        Type = TargetType.Game;
+        DefaultBuildSettings = BuildSettingsVersion.V2;
+        bUsesSteam = true;
+        ExtraModuleNames.AddRange(new string[] { "Neo" });
+    }
 }
