@@ -23,12 +23,6 @@ private:
 
 public:
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UUserWidget> MainMenuWidgetClass;
-	UFUNCTION(BlueprintCallable)
-	void ShowMainMenu();
-	UUserWidget* MainMenuWidget = nullptr;
-
-	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UUserWidget> HostMenuWidgetClass;
 	UFUNCTION(BlueprintCallable)
 	void ShowHostMenu();

@@ -15,11 +15,4 @@ UCLASS()
 class NEO_API AMenuPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-
-public:
-	AMenuPlayerController();
-
-	virtual void BeginPlay() override;
-
-	UNeoGameInstance* GameInstance;
 };

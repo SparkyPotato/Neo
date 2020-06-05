@@ -15,12 +15,4 @@ UCLASS()
 class NEO_API USettingsMenu : public UUserWidget
 {
 	GENERATED_BODY()
-
-public:
-    virtual void NativeOnInitialized() override;
-
-    UNeoGameInstance* GameInstance;
-
-    UFUNCTION(BlueprintCallable)
-    void Back();
 };

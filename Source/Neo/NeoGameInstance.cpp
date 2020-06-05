@@ -2,15 +2,6 @@
 
 #include "NeoGameInstance.h"
 
-void UNeoGameInstance::ShowMainMenu()
-{
-	if (MainMenuWidget == nullptr)
-	{
-		MainMenuWidget = UUserWidget::CreateWidgetInstance(*GetPrimaryPlayerController(), MainMenuWidgetClass, FName("MainMenu"));
-	}
-	MainMenuWidget->AddToViewport();
-}
-
 void UNeoGameInstance::ShowHostMenu()
 {
 	if (HostMenuWidget == nullptr)

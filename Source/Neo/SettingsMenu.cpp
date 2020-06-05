@@ -2,16 +2,3 @@
 
 
 #include "SettingsMenu.h"
-
-void USettingsMenu::NativeOnInitialized()
-{
-	Super::OnInitialized();
-
-	GameInstance = GetGameInstance<UNeoGameInstance>();
-}
-
-void USettingsMenu::Back()
-{
-	GameInstance->ShowMainMenu();
-	RemoveFromParent();
-}

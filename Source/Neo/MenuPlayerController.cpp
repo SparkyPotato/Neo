@@ -2,17 +2,3 @@
 
 
 #include "MenuPlayerController.h"
-
-AMenuPlayerController::AMenuPlayerController()
-{
-	
-}
-
-void AMenuPlayerController::BeginPlay()
-{
-	Super::BeginPlay();
-
-	GameInstance = GetGameInstance<UNeoGameInstance>();
-
-	GameInstance->ShowMainMenu();
-}
